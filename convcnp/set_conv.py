@@ -30,14 +30,18 @@ class ConvDeepSet(nn.Module):
                  out_channels,
                  learn_length_scale,
                  init_length_scale,
+                 x_dim=1,
+                 t_dim=1,
                  use_density=True):
         super(ConvDeepSet, self).__init__()
         self.out_channels = out_channels
         self.use_density = use_density
         self.in_channels = in_channels + 1 if self.use_density else in_channels
+        self.x_dim = x_dim
+        self.t_dim = t_dim
         self.g = self.build_weight_model()
         self.sigma = nn.Parameter(np.log(init_length_scale) *
-                                  torch.ones(self.in_channels),
+                                  torch.ones(self.in_channels - t_dim + 1),
                                   requires_grad=learn_length_scale)
         self.sigma_fn = torch.exp
 
@@ -61,8 +65,10 @@ class ConvDeepSet(nn.Module):
 
         Args:
             x (tensor): Inputs of observations of shape `(n, 1)`.
+            x_extra (tensor): Extra inputs of observations of shape `(n, x_dim-1)`.
             y (tensor): Outputs of observations of shape `(n, in_channels)`.
             t (tensor): Inputs to evaluate function at of shape `(m, 1)`.
+            t_extra (tensor): Extra inputs of observations of shape `(m, x_dim-1)`.
 
         Returns:
             tensor: Outputs of evaluated function at `z` of shape
@@ -75,6 +81,12 @@ class ConvDeepSet(nn.Module):
             y = y.unsqueeze(2)
         if len(t.shape) == 2:
             t = t.unsqueeze(2)
+
+        # split into x and x_extra
+        x_extra = x[:, :, 1:]
+        x = x[:, :, :1]
+        t_extra = t[:, :, 1:]
+        t = t[:, :, :1]
 
         # Compute shapes.
         batch_size = x.shape[0]
@@ -89,6 +101,9 @@ class ConvDeepSet(nn.Module):
         # Shape: (batch, n_in, n_out, in_channels).
         wt = self.rbf(dists)
 
+        # Add extra observation from x onto y
+        y = torch.cat([y, x_extra], dim=2)
+
         if self.use_density:
             # Compute the extra density channel.
             # Shape: (batch, n_in, 1).
@@ -102,7 +117,8 @@ class ConvDeepSet(nn.Module):
 
         # Perform the weighting.
         # Shape: (batch, n_in, n_out, in_channels).
-        y_out = y_out.view(batch_size, n_in, -1, self.in_channels) * wt
+        channels = self.in_channels - self.t_dim + 1
+        y_out = y_out.view(batch_size, n_in, -1, channels) * wt
 
         # Sum over the inputs.
         # Shape: (batch, n_out, in_channels).
@@ -113,6 +129,10 @@ class ConvDeepSet(nn.Module):
             density, conv = y_out[..., :1], y_out[..., 1:]
             normalized_conv = conv / (density + 1e-8)
             y_out = torch.cat((density, normalized_conv), dim=-1)
+
+        if t_extra is not None:
+            # If we have extra features already aligned with the grid...
+            y_out = torch.cat([y_out, t_extra], dim=2)
 
         # Apply the point-wise function.
         # Shape: (batch, n_out, out_channels).
@@ -152,7 +172,10 @@ class ConvCNP(nn.Module):
     def __init__(self,
                  learn_length_scale,
                  points_per_unit,
-                 architecture):
+                 architecture,
+                 x_dim,
+                 y_dim
+                 ):
         super(ConvCNP, self).__init__()
         self.activation = nn.Sigmoid()
         self.sigma_fn = nn.Softplus()
@@ -164,22 +187,24 @@ class ConvCNP(nn.Module):
         init_length_scale = 2.0 / self.points_per_unit
 
         self.l0 = ConvDeepSet(
-            in_channels=1,
+            in_channels=x_dim,
             out_channels=self.conv_net.in_channels,
             learn_length_scale=learn_length_scale,
             init_length_scale=init_length_scale,
             use_density=True
         )
         self.mean_layer = ConvDeepSet(
-            in_channels=self.conv_net.out_channels,
+            in_channels=self.conv_net.out_channels+x_dim-1,
             out_channels=1,
+            t_dim=x_dim,
             learn_length_scale=learn_length_scale,
             init_length_scale=init_length_scale,
             use_density=False
         )
         self.sigma_layer = ConvDeepSet(
-            in_channels=self.conv_net.out_channels,
+            in_channels=self.conv_net.out_channels+x_dim-1,
             out_channels=1,
+            t_dim=x_dim,
             learn_length_scale=learn_length_scale,
             init_length_scale=init_length_scale,
             use_density=False
@@ -207,13 +232,14 @@ class ConvCNP(nn.Module):
         if len(x_out.shape) == 2:
             x_out = x_out.unsqueeze(2)
 
-        # Determine the grid on which to evaluate functional representation.
-        x_min = min(torch.min(x).cpu().numpy(),
-                    torch.min(x_out).cpu().numpy(), -2.) - 0.1
-        x_max = max(torch.max(x).cpu().numpy(),
-                    torch.max(x_out).cpu().numpy(), 2.) + 0.1
+        # Determine the grid on which to evaluate functional representation. Use only first X dim, which we assume is time or similar, the rest will be features
+        x_min = min(torch.min(x[:, :, 0]).cpu().numpy(),
+                    torch.min(x_out[:, :, 0]).cpu().numpy(), -2.) - 0.1
+        x_max = max(torch.max(x[:, :, 0]).cpu().numpy(),
+                    torch.max(x_out[:, :, 0]).cpu().numpy(), 2.) + 0.1
         num_points = int(to_multiple(self.points_per_unit * (x_max - x_min),
                                      self.multiplier))
+        # This assumes that all x have the same span
         x_grid = torch.linspace(x_min, x_max, num_points).to(device)
         x_grid = x_grid[None, :, None].repeat(x.shape[0], 1, 1)
 
