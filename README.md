@@ -2,6 +2,11 @@ Fork of https://github.com/cambridge-mlg/convcnp
 
 Trying it out on smart meter data as a direct comparison to ANP, ANP-RNN, NP, LSTM models in https://github.com/3springs/attentive-neural-processes
 
+![](demo_images/smartmeter0.png)
+
+
+![](demo_images/smartmeter1.png)
+
 -----------------
 
 

@@ -14,7 +14,7 @@ __all__ = ['ConvDeepSet', 'ConvCNP']
 
 class ConvDeepSet(nn.Module):
     """One-dimensional set convolution layer. Uses an RBF kernel for
-    `psi(x, x')`.
+    interpolation `psi(x, x')`.
 
     Args:
         in_channels (int): Number of input channels.
@@ -63,12 +63,12 @@ class ConvDeepSet(nn.Module):
     def forward(self, x, y, t):
         """Forward pass through the layer with evaluations at locations `t`.
 
+        We assume that the first feature of x & t is the coordinate
+
         Args:
-            x (tensor): Inputs of observations of shape `(n, 1)`.
-            x_extra (tensor): Extra inputs of observations of shape `(n, x_dim-1)`.
-            y (tensor): Outputs of observations of shape `(n, in_channels)`.
-            t (tensor): Inputs to evaluate function at of shape `(m, 1)`.
-            t_extra (tensor): Extra inputs of observations of shape `(m, x_dim-1)`.
+            x (tensor): Inputs of observations of shape `(batch, n, x_dim)`.
+            y (tensor): Outputs of observations of shape `(batch, n, in_channels)`.
+            t (tensor): Inputs to evaluate function at of shape `(m, t_dim)`.
 
         Returns:
             tensor: Outputs of evaluated function at `z` of shape
@@ -82,7 +82,7 @@ class ConvDeepSet(nn.Module):
         if len(t.shape) == 2:
             t = t.unsqueeze(2)
 
-        # split into x and x_extra
+        # split into x and x_extra, where we assume the first channel is the location coorda and the rest are features
         x_extra = x[:, :, 1:]
         x = x[:, :, :1]
         t_extra = t[:, :, 1:]
@@ -101,7 +101,7 @@ class ConvDeepSet(nn.Module):
         # Shape: (batch, n_in, n_out, in_channels).
         wt = self.rbf(dists)
 
-        # Add extra observation from x onto y
+        # Add extra observations from x onto y, this way they will be projected along with y
         y = torch.cat([y, x_extra], dim=2)
 
         if self.use_density:
@@ -131,7 +131,7 @@ class ConvDeepSet(nn.Module):
             y_out = torch.cat((density, normalized_conv), dim=-1)
 
         if t_extra is not None:
-            # If we have extra features already aligned with the grid...
+            # If we have extra features already aligned with the grid we add them on after projection to the grid
             y_out = torch.cat([y_out, t_extra], dim=2)
 
         # Apply the point-wise function.
