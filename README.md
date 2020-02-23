@@ -1,3 +1,10 @@
+Fork of https://github.com/cambridge-mlg/convcnp
+
+Trying it out on smart meter data as a direct comparison to ANP, ANP-RNN, NP, LSTM models in https://github.com/3springs/attentive-neural-processes
+
+-----------------
+
+
 ![Demonstration of a ConvCNP](https://github.com/cambridge-mlg/convcnp/blob/master/demo_images/convcnp.gif)
 
 # Convolutional Conditional Neural Processes
@@ -5,10 +12,11 @@
 This repository contains code for the 1-dimensional experiments from
 [Convolutional Convolutional Neural Processes](https://openreview.net/forum?id=Skey4eBYPS).
 
-* [Installation](#installation)
-* [Expository Notebooks](#expository-notebooks)
-* [Reproducing the 1D Experiments](#reproducing-the-1d-experiments)
-* [Reference](#reference)
+- [Convolutional Conditional Neural Processes](#convolutional-conditional-neural-processes)
+  - [Installation](#installation)
+  - [Expository Notebooks](#expository-notebooks)
+  - [Reproducing the 1D Experiments](#reproducing-the-1d-experiments)
+  - [Reference](#reference)
 
 ## Installation
 Requirements:
