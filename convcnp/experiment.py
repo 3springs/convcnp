@@ -2,7 +2,6 @@ import os
 import shutil
 import time
 
-import slugify
 import torch
 
 __all__ = ['generate_root',
@@ -22,7 +21,7 @@ def generate_root(name):
 
     """
     now = time.strftime('%Y-%m-%d_%H-%M-%S')
-    return os.path.join('_experiments', f'{now}_{slugify.slugify(name)}')
+    return os.path.join('_experiments', f'{now}_{name}')
 
 
 def save_checkpoint(wd, state, is_best):

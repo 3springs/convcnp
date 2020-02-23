@@ -109,12 +109,14 @@ class DataGenerator(metaclass=abc.ABCMeta):
         for i in range(self.batch_size):
             # Sample inputs and outputs.
             x = _rand(self.x_range, num_points)
+            x = x[np.argsort(x)]
             y = self.sample(x)
 
             # Determine indices for train and test set.
-            inds = np.random.permutation(x.shape[0])
+            inds = sorted(np.random.permutation(x.shape[0]))
             inds_train = sorted(inds[:num_train_points])
             inds_test = sorted(inds[num_train_points:num_points])
+            # print(inds, inds_train, inds_test)
 
             # Record to task.
             task['x'].append(sorted(x))

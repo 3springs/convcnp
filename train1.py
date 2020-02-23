@@ -85,7 +85,7 @@ parser.add_argument('--weight_decay',
                     default=1e-5,
                     type=float,
                     help='Weight decay.')
-args = parser.parse_args()
+args = parser.parse_args(['eq', 'convcnp'])
 
 # Load working directory.
 if args.root:
@@ -164,11 +164,12 @@ if args.train:
                          'best_acc_top1': best_obj,
                          'optimizer': opt.state_dict()},
                         is_best=is_best)
-
 else:
     # Load saved model.
     load_dict = torch.load(wd.file('model_best.pth.tar', exists=True))
     model.load_state_dict(load_dict['state_dict'])
+
+
 
 # Finally, test model on ~2000 tasks.
 test_obj = validate(gen_test, model)
